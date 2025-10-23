@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monitor de Reservatórios</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      color: #333;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      color: #0066cc;
+    }
+    .cards {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 15px;
+      margin-bottom: 25px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      padding: 20px;
+      width: 220px;
+      text-align: center;
+    }
+    .card h2 {
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+    .card .percent {
+      font-size: 22px;
+      font-weight: bold;
+      color: #0077b6;
+    }
+    .chart {
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Monitoramento de Reservatórios - Tempo Real</h1>
+
+<div class="cards" id="statusCards"></div>
+<div class="chart" id="chart"></div>
+
+<script>
+const endpoint = "https://webhook.site/6f587dee-896b-4597-aef4-e87aaf3a95d2";
+const reservoirs = {
+  "Reservatorio_Elevador_current": { name: "Elevador", capacity: 20000 },
+  "Reservatorio_Osmose_current": { name: "Osmose", capacity: 200 },
+  "Reservatorio_CME_current": { name: "CME", capacity: 1000 },
+  "Agua_Abrandada_current": { name: "Abrandada", capacity: 9000 }
+};
+
+async function fetchData() {
+  try {
+    const response = await fetch(endpoint);
+    const text = await response.text();
+    const data = JSON.parse(text.match(/\{[\s\S]*\}/)[0]).data;
+
+    const grouped = {};
+    data.forEach(item => {
+      if (reservoirs[item.ref]) {
+        if (!grouped[item.ref]) grouped[item.ref] = [];
+        grouped[item.ref].push({
+          time: new Date(item.time / 1000),
+          value: parseFloat(item.value)
+        });
+      }
+    });
+
+    updateCards(grouped);
+    drawChart(grouped);
+  } catch (e) {
+    console.error("Erro ao buscar dados:", e);
+  }
+}
+
+function updateCards(grouped) {
+  const container = document.getElementById("statusCards");
+  container.innerHTML = "";
+  for (const ref in reservoirs) {
+    const readings = grouped[ref] || [];
+    const last = readings.at(-1)?.value || 0;
+    const percent = Math.min(100, (last / 0.008) * 100).toFixed(1); // ajuste conforme calibração
+    const liters = (reservoirs[ref].capacity * percent / 100).toFixed(0);
+
+    container.innerHTML += `
+      <div class="card">
+        <h2>${reservoirs[ref].name}</h2>
+        <div class="percent">${percent}%</div>
+        <div>${liters} L</div>
+      </div>
+    `;
+  }
+}
+
+function drawChart(grouped) {
+  const traces = Object.keys(grouped).map(ref => ({
+    x: grouped[ref].map(p => p.time),
+    y: grouped[ref].map(p => (p.value / 0.008) * 100),
+    mode: "lines",
+    name: reservoirs[ref].name
+  }));
+
+  const layout = {
+    title: "Nível dos Reservatórios - Últimas 24h",
+    xaxis: { title: "Hora" },
+    yaxis: { title: "Nível (%)", range: [0, 110] },
+    plot_bgcolor: "#fff",
+    paper_bgcolor: "#fff"
+  };
+
+  Plotly.newPlot("chart", traces, layout);
+}
+
+fetchData();
+setInterval(fetchData, 60000); // atualiza a cada 60s
+</script>
+
+</body>
+</html>
+
