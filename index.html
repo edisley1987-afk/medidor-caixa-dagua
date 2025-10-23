@@ -1,165 +1,33 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Monitoramento de Reservatórios - Tempo Real</title>
-<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-<style>
-  body { font-family: Arial, sans-serif; background:#f4f6f8; color:#333; margin:0; padding:20px;}
-  h1 { text-align:center; color:#0066cc; }
-  .cards { display:flex; flex-wrap:wrap; justify-content:center; gap:15px; margin-bottom:25px;}
-  .card { background:#fff; border-radius:10px; box-shadow:0 2px 5px rgba(0,0,0,0.1); padding:20px; width:240px; text-align:center;}
-  .card h2 { font-size:16px; margin:8px 0; }
-  .big { font-size:18px; font-weight:700; color:#06477a;}
-  #grafico { max-width:1000px; margin:0 auto; }
-</style>
-</head>
-<body>
-  <h1>Monitoramento de Reservatórios - Tempo Real</h1>
-
-  <div class="cards">
-    <div class="card">
-      <h2>Reservatório Elevador</h2>
-      <div id="Reservatorio_Elevador_current" class="big">—</div>
-      <div id="Reservatorio_Elevador_detail"></div>
-    </div>
-    <div class="card">
-      <h2>Reservatório Osmose</h2>
-      <div id="Reservatorio_Osmose_current" class="big">—</div>
-      <div id="Reservatorio_Osmose_detail"></div>
-    </div>
-    <div class="card">
-      <h2>Reservatório CME</h2>
-      <div id="Reservatorio_CME_current" class="big">—</div>
-      <div id="Reservatorio_CME_detail"></div>
-    </div>
-    <div class="card">
-      <h2>Reservatório Abrandada</h2>
-      <div id="Agua_Abrandada_current" class="big">—</div>
-      <div id="Agua_Abrandada_detail"></div>
-    </div>
-  </div>
-
-  <div id="grafico"></div>
-
 <script>
-/*
-  CONFIGURE AQUI:
-  - WEBHOOK_URL: coloque sua URL do webhook (ex: https://webhook.site/xxxxx)
-  - capacities: tabela de capacidade (litros) por ref (ajuste conforme sua planilha)
-*/
-const WEBHOOK_URL = "https://webhook.site/6f587dee-896b-4597-aef4-e87aaf3a95d2"; // substitua pela sua
-const capacities = {
-  "Reservatorio_Elevador_current": 20000,   // elevador: 4x5000
-  "Reservatorio_Osmose_current": 200,       // osmose: 1x200
-  "Reservatorio_CME_current": 1000,         // CME: 2x500 = 1000
-  "Agua_Abrandada_current": 9000            // abrandada: 9x1000
-};
-
-// nomes amigáveis (opcional)
-const friendly = {
-  "Reservatorio_Elevador_current": "Elevador",
-  "Reservatorio_Osmose_current": "Osmose",
-  "Reservatorio_CME_current": "CME",
-  "Agua_Abrandada_current": "Abrandada"
-};
-
-async function fetchData() {
+async function atualizarLeituras() {
   try {
-    const res = await fetch(WEBHOOK_URL + "/requests/latest", { cache: "no-store" });
-    // OBS: webhook.site não tem endpoint padrão '/requests/latest' aberto para todos.
-    // Se sua URL retorna o JSON diretamente, use apenas fetch(WEBHOOK_URL).
-    // Dependendo do provedor, ajuste a rota.
-    const json = await res.json();
+    const resposta = await fetch("https://webhook.site/6587d8ee-896b-4597-aef4-e87aaf3a95d2");
+    const texto = await resposta.text();
+    const jsonStr = texto.match(/\{[\s\S]*\}/g);
+    if (!jsonStr) return;
 
-    // Se o JSON vier como { data: [...] } ou o corpo for o objeto já mostrado
-    // vamos localizar o array "data".
-    const dataArray = json.data || json.body?.data || json; // tenta várias opções
+    const dados = JSON.parse(jsonStr[jsonStr.length - 1]);
 
-    // Converte itens em map por ref -> último valor
-    const map = {};
-    if (Array.isArray(dataArray)) {
-      dataArray.forEach(item => {
-        if (item.ref && typeof item.value !== 'undefined') {
-          map[item.ref] = item;
-        }
-      });
-    } else {
-      console.warn("Formato dos dados não é array. Verifique a resposta:", json);
+    const mapa = {
+      "Reservatorio_Elevador_current": "Reservatorio_Elevador_current",
+      "Reservatorio_Osmose_current": "Reservatorio_Osmose_current",
+      "Reservatorio_CME_current": "Reservatorio_CME_current",
+      "Agua_Abrandada_current": "Reservatorio_Abrandada_current"
+    };
+
+    for (let key in mapa) {
+      const el = document.getElementById(mapa[key]);
+      const item = dados.find(d => d.ref === key);
+      if (el && item) {
+        el.textContent = (item.value * 100).toFixed(1) + "%";
+      }
     }
-
-    updateUI(map);
-  } catch (err) {
-    console.error("Erro ao buscar dados:", err);
-    // exibir erro nas cards
-    Object.keys(capacities).forEach(k => {
-      document.getElementById(k).textContent = "erro";
-      document.getElementById(k + "_detail")?.textContent = "";
-    });
+  } catch (erro) {
+    console.error("Erro ao buscar dados:", erro);
   }
 }
 
-function updateUI(map) {
-  // Prepara dados para gráfico
-  const labels = [];
-  const valuesPct = [];
-  const volumes = [];
-
-  Object.keys(capacities).forEach(ref => {
-    const cap = capacities[ref] || 1;
-    const item = map[ref];
-    const value = item ? Number(item.value) : null; // ex: 0.00537
-    let pct = 0;
-    let volume = 0;
-
-    if (value !== null && !isNaN(value)) {
-      // seu JSON parece já enviar uma fração (ex: 0.007775) -> interpretamos como "altura/alturaMax"
-      // aqui vamos supor que value * capacidade = litros atuais (se necessário ajuste)
-      volume = value * cap;
-      pct = value * 100;
-    } else {
-      volume = null;
-      pct = null;
-    }
-
-    // atualiza cards
-    const el = document.getElementById(ref);
-    const det = document.getElementById(ref + "_detail");
-    if (el) {
-      el.textContent = (pct !== null) ? pct.toFixed(2) + "%" : "—";
-    }
-    if (det) {
-      det.textContent = (volume !== null) ? `${volume.toFixed(0)} L de ${cap} L` : "";
-    }
-
-    labels.push(friendly[ref] || ref);
-    valuesPct.push(pct !== null ? pct : 0);
-    volumes.push(volume !== null ? volume : 0);
-  });
-
-  plotChart(labels, valuesPct);
-}
-
-function plotChart(labels, valuesPct) {
-  const trace = {
-    x: labels,
-    y: valuesPct,
-    type: 'bar',
-    text: valuesPct.map(v => v ? v.toFixed(2) + '%' : '-'),
-    textposition: 'auto'
-  };
-  const layout = {
-    title: 'Nível (% da capacidade) — últimas leituras',
-    yaxis: { title: 'Percentual (%)', range: [0, 110] },
-    margin: { t: 60 }
-  };
-  Plotly.newPlot('grafico', [trace], layout, {responsive: true});
-}
-
-// Atualiza a cada 10 s
-fetchData();
-setInterval(fetchData, 10000);
+// Atualiza a cada 10 segundos
+setInterval(atualizarLeituras, 10000);
+atualizarLeituras();
 </script>
-</body>
-</html>
