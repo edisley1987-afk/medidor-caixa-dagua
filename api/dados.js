@@ -1,3 +1,6 @@
+// Importa 'node-fetch' para usar fetch no Node.js
+import fetch from 'node-fetch';
+
 export default async function handler(req, res) {
   // Se o método for POST (dados vindo do gateway)
   if (req.method === 'POST') {
@@ -5,7 +8,7 @@ export default async function handler(req, res) {
       const body = req.body;
       console.log('Dados recebidos:', body);
 
-      // Envia os dados para o seu webhook no webhook.site
+      // Envia os dados para o webhook.site
       const response = await fetch(
         'http://webhook.site/fb8edc5b-ddcf-4cff-b2d5-c29b5721c0dd/api/v1_2/json/itg/data',
         {
@@ -25,11 +28,17 @@ export default async function handler(req, res) {
     }
   }
 
-  // Se o método for GET (painel requisitando dados)
+  // Se o método for GET (para teste no navegador)
   if (req.method === 'GET') {
-    try {
-      // Exemplo de retorno simulado para testes de visualização
-      const dadosFake = [
-        { caixa: 'Reservatório Elevador', nivel: 82 },
-        { caixa: 'Reservatório Osmose', nivel: 61 },
-       
+    const dadosFake = [
+      { caixa: 'Reservatório Elevador', nivel: 82 },
+      { caixa: 'Reservatório Osmose', nivel: 61 },
+      { caixa: 'Reservatório CME', nivel: 74 },
+      { caixa: 'Reservatório Ablandada', nivel: 93 },
+    ];
+    return res.status(200).json(dadosFake);
+  }
+
+  res.setHeader('Allow', ['GET', 'POST']);
+  res.status(405).end(`Método ${req.method} não permitido`);
+}
