@@ -46,10 +46,10 @@
 <script>
 /*
   CONFIGURE AQUI:
-  - WEBHOOK_URL: coloque sua URL do webhook (ex: https://webhook.site/xxxxx)
+  - WEBHOOK_URL: coloque sua URL do webhook (ex: https://hkdk.events/vch9hzn5mkbm5v)
   - capacities: tabela de capacidade (litros) por ref (ajuste conforme sua planilha)
 */
-const WEBHOOK_URL = "https://webhook.site/6f587dee-896b-4597-aef4-e87aaf3a95d2"; // substitua pela sua
+const WEBHOOK_URL = "https://hkdk.events/vch9hzn5mkbm5v"; // substitua pela sua
 const capacities = {
   "Reservatorio_Elevador_current": 20000,   // elevador: 4x5000
   "Reservatorio_Osmose_current": 200,       // osmose: 1x200
@@ -67,7 +67,7 @@ const friendly = {
 
 async function fetchData() {
   try {
-    const res = await fetch(WEBHOOK_URL + "/requests/latest", { cache: "no-store" });
+    const res = await fetch(https://hkdk.events/vch9hzn5mkbm5v "/requests/latest", { cache: "no-store" });
     // OBS: webhook.site não tem endpoint padrão '/requests/latest' aberto para todos.
     // Se sua URL retorna o JSON diretamente, use apenas fetch(WEBHOOK_URL).
     // Dependendo do provedor, ajuste a rota.
@@ -166,7 +166,7 @@ setInterval(fetchData, 10000);
 <script>
 async function atualizarLeituras() {
   try {
-    const resposta = await fetch("https://webhook.site/6587d8ee-8966-4597-aef4-e887aef3a9d2");
+    const resposta = await fetch("https://hkdk.events/vch9hzn5mkbm5v");
     const texto = await resposta.text();
 
     // tenta extrair o JSON corretamente
